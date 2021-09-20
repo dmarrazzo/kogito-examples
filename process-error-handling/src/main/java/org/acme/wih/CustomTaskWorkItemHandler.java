@@ -22,18 +22,22 @@ import org.kie.api.runtime.process.ProcessWorkItemHandlerException;
 import org.kie.kogito.internal.process.runtime.KogitoWorkItem;
 import org.kie.kogito.internal.process.runtime.KogitoWorkItemHandler;
 import org.kie.kogito.internal.process.runtime.KogitoWorkItemManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CustomTaskWorkItemHandler implements KogitoWorkItemHandler {
 
+    private static final Logger LOG = LoggerFactory.getLogger(CustomTaskWorkItemHandler.class);
+
     @Override
     public void executeWorkItem(KogitoWorkItem workItem, KogitoWorkItemManager manager) {
-        System.out.println("Hello from the custom work item definition.");
-        System.out.println("Passed parameters:");
+        LOG.debug("start");
+        LOG.debug("Passed parameters:");
 
         // Printing task’s parameters, it will also print
         // our value we pass to the task from the process
         for (String parameter : workItem.getParameters().keySet()) {
-            System.out.println(parameter + " = " + workItem.getParameters().get(parameter));
+            LOG.debug(parameter + " = " + workItem.getParameters().get(parameter));
         }
 
         String input = (String) workItem.getParameter("Input");
@@ -41,15 +45,22 @@ public class CustomTaskWorkItemHandler implements KogitoWorkItemHandler {
         Map<String, Object> results = new HashMap<String, Object>();
         results.put("Result", "Hello " + input);
 
-        if (input.contains("error")) {
-            Throwable throwable = new Throwable("Input contains \"error\"");
-            throw new ProcessWorkItemHandlerException("error_handling", ProcessWorkItemHandlerException.HandlingStrategy.RETHROW, throwable);
+        if (input.matches("(RETRY|COMPLETE|ABORT|RETHROW)")) {
+            handleError(input);
         }
 
         // Don’t forget to finish the work item otherwise the process
         // will be active infinitely and never will pass the flow
         // to the next node.
         manager.completeWorkItem(workItem.getStringId(), results);
+
+        LOG.debug("end");
+    }
+
+    private void handleError(String strategy) {
+        throw new ProcessWorkItemHandlerException("error_handling",
+                ProcessWorkItemHandlerException.HandlingStrategy.valueOf(strategy),
+                new Throwable(strategy + " strategy test"));
     }
 
     @Override
