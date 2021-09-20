@@ -34,7 +34,7 @@ public class ErrorHandlingScript {
             LOG.debug("{}={}\n", entry.getKey(), entry.getValue());
         }
         ProcessWorkItemHandlerException exception = (ProcessWorkItemHandlerException) kcontext.getVariable("Error");
-        if (exception.getStrategy().name().equalsIgnoreCase("retry"))
+        if (exception != null && exception.getStrategy().name().equalsIgnoreCase("retry"))
             kcontext.setVariable("Input", "John");
 
         LOG.debug("end");
