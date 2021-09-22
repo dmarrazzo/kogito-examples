@@ -1,27 +1,57 @@
-# Process script invocation
+# Process Error Handling
 
 ## Description
 
-A quickstart project is the simplest hello world kind of example, it accepts input and replies with hello message.
+A simple usage scenario of the Error Handling Strategy
 
-This example shows
+The main process is 
 
-* invoking scripts from within process
+![hello error](docs/images/hello-error-process.png)
 
-<p align="center"><img width=75% height=50% src="docs/images/process.png"></p>
+Here the logic:
 
-* Diagram Properties (top)
-<p align="center"><img src="docs/images/diagramProperties.png"></p>
+- `Custom Task` is a custom WorkItemHandler, the simple implementation is
 
-* Diagram Properties (bottom)
-<p align="center"><img src="docs/images/diagramProperties2.png"></p>
+  - Read the `Input` parameter
+  - Return the `Result` string with the concatenation of `Hello ` and the value of the `Input`
+  - Whether `Input` matches one of the following values `RETRY`, `COMPLETE`, `ABORT` or `RETHROW`; it throws a `ProcessWorkItemHandlerException` initialized with the corresponding strategy
 
-* Hello Script Task
-<p align="center"><img src="docs/images/sayHelloScriptTask.png"></p>
+- `Print Message` is script which print out the outcome of the previous Task (stored in `message` variable).
 
-* Update Message Script Task
-<p align="center"><img src="docs/images/updateMessageScriptTask.png"></p>
+- Finally, an event sub-process is defined to catch all exceptions that reach the main process instance and to print out `Catch all` in the console.
 
+In short, it is a sophisticated version of a **Hello World** process!
+
+In order to probe the _Error Handling_ capabilities, you have to trigger the process with the **name** of the error handling strategy.
+Regardless the strategy, the sub-process `error-handling` will be executed, then the main process execution is influenced by the strategy:
+
+- `RETRY`: the `Custom Task` is executed again, the `Input` parameter of the task is refreshed using the outcome of the `error-handling` process.
+- `COMPLETE`: the `Custom Task` is skipped, the `Result` parameter of the task is set with the corresponding outcome of the `error-handling` process.
+- `ABORT`: the `Custom Task` is aborted and the containing process instance is terminated.
+- `RETHROW`: the `Custom Task` is aborted and the exception is thrown back at containing process level.
+
+The `error-handling` sub-process initiates a user task which goal is to repair the situation.
+
+The process design leaves the user in full control:
+
+- Analyze the error message to understand the root cause of the problem
+- Override the default _error handling strategy_
+- In case of `RETRY`, they can provide a different **input** parameter for the task
+- In case of `COMPLETE`, they can set the output parameter **result** for the task, in other words, the user replaces the implementation of the task by simulating a response
+
+Here the process model:
+
+![error-handling-process](docs/images/error-handling-process.png)
+
+The `Init` script calls the corresponding method of the class `ErrorHandlingScript` and there it performs the following:
+
+- Logs the process variables
+- Store the _error handling strategy_ in the `strategy` process variable 
+
+The `Apply` script calls the corresponding method of the class `ErrorHandlingScript` and there it performs the following:
+
+- Read the `strategy` variable
+- Override the `Error` variable with a new `ProcessWorkItemHandlerException` initialized with the new strategy
 
 ## Build and run
 

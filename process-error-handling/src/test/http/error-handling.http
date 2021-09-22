@@ -47,5 +47,5 @@ Content-Type: application/json
 {
     "input" : "Donato",
     "result" : "Hello Francisco",
-    "strategy" : "ABORT"
+    "strategy" : "COMPLETE"
 }
