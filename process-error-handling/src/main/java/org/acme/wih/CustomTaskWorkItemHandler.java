@@ -65,6 +65,7 @@ public class CustomTaskWorkItemHandler implements KogitoWorkItemHandler {
 
     @Override
     public void abortWorkItem(KogitoWorkItem workItem, KogitoWorkItemManager manager) {
-        System.err.println("Error happened in the custom work item definition.");
+        LOG.debug("nope");
+        manager.abortWorkItem(workItem.getStringId());
     }
 }
