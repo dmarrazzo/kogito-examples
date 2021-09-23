@@ -45,14 +45,16 @@ public class CustomTaskWorkItemHandler implements KogitoWorkItemHandler {
         Map<String, Object> results = new HashMap<String, Object>();
         results.put("Result", "Hello " + input);
 
-        if (input.matches("(RETRY|COMPLETE|ABORT|RETHROW)")) {
+        if (input.matches("(RETRY|COMPLETE|RETHROW)")) {
             handleError(input);
+        } else if (input.contentEquals("ABORT")) {
+            manager.abortWorkItem(workItem.getStringId());
+        } else {
+            // Don’t forget to finish the work item otherwise the process
+            // will be active infinitely and never will pass the flow
+            // to the next node.
+            manager.completeWorkItem(workItem.getStringId(), results);
         }
-
-        // Don’t forget to finish the work item otherwise the process
-        // will be active infinitely and never will pass the flow
-        // to the next node.
-        manager.completeWorkItem(workItem.getStringId(), results);
 
         LOG.debug("end");
     }

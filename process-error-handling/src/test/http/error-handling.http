@@ -7,7 +7,7 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "name" : "ABORT"
+    "name" : "RETRY"
 }
 
 # @piid={{hello_error.response.body.id}}
@@ -45,7 +45,6 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "input" : "Donato",
-    "result" : "Hello Francisco",
-    "strategy" : "COMPLETE"
+    "input" : "Jimmy",
+    "strategy" : "RETRY"
 }
