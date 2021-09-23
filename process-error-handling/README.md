@@ -27,8 +27,8 @@ Regardless the strategy, the sub-process `error-handling` will be executed, then
 
 - `RETRY`: the `Custom Task` is executed again, the `Input` parameter of the task is refreshed using the outcome of the `error-handling` process.
 - `COMPLETE`: the `Custom Task` is skipped, the `Result` parameter of the task is set with the corresponding outcome of the `error-handling` process.
-- `ABORT`: the `Custom Task` is aborted and the containing process instance is terminated.
-- `RETHROW`: the `Custom Task` is aborted and the exception is thrown back at containing process level.
+- `ABORT`: the `Custom Task` is aborted and the process instance continues the execution. Pay attention: if the outcome of the task is essential for the following tasks the process is going to fail later).
+- `RETHROW`: the `Custom Task` is aborted and the exception is thrown back at the task scope.
 
 The `error-handling` sub-process initiates a user task which goal is to repair the situation.
 
@@ -113,36 +113,139 @@ When running in either Quarkus Development or Native mode, we also leverage the 
 
 ### Submit a request
 
-To make use of this application it is as simple as putting a sending request to `http://localhost:8080/scripts`  with following content
+To make use of this application it is as simple as putting a sending request to `http://localhost:8080/hello_error`  with following content
 
 ```json
 {
     "name" : "john"
 }
-
 ```
 
 Complete curl command can be found below:
 
 ```sh
-curl -X POST -H 'Content-Type:application/json' -H 'Accept:application/json' -d '{"name" : "john"}' http://localhost:8080/scripts
+curl --request POST \
+  --url http://localhost:8080/hello_error \
+  --header 'accept: application/json' \
+  --header 'content-type: application/json' \
+  --data '{"name" : "john"}'
 ```
 
-Response should be similar to:
+Response should resemble:
 
 ```json
 {
-    "id":"ab5239e2-f497-4684-b337-5a44440b38dd",
-    "name":"john",
-    "message":"Hello john"
+  "id": "ae4a5fd4-3d49-4ba5-92dd-4b6222492fdd",
+  "message": "Hello john"
 }
 ```
 
-And also in Quarkus log you should see a log entry:
+### Probe the RETRY strategy
 
+**TIP:** In the following example, we are going to show the `curl` command line. Although, a more comfortable way is using the following [REST client](https://https://marketplace.visualstudio.com/items?itemName=humao.rest-client), you can find in the project the file with all the requests: `src/test/http/error-handling.http`.
+
+Trigger the process with any error handling strategy:
+
+```sh
+curl --request POST \
+  --url http://localhost:8080/hello_error \
+  --header 'accept: application/json' \
+  --header 'content-type: application/json' \
+  --data '{"name" : "RETRY"}'
 ```
-Hello john"
+
+An `error-handling` process instance is created, issue the following command to retrieve the process instance id:
+
+```sh
+curl --request GET \
+  --url http://localhost:8080/error_handling \
+  --header 'accept: application/json' \
+  --header 'content-type: application/json'
 ```
+
+Get the tasks from the process instance you got.
+
+**Make sure** to replace the _process instance id_:
+
+```sh
+curl --request GET \
+  --url http://localhost:8080/error_handling/11b37d40-3c01-4384-92cc-044ac8939dcc/tasks \
+  --header 'accept: application/json' \
+  --header 'content-type: application/json'
+```
+
+Complete the `Repair` task.
+
+**Make sure** to replace the _process instance id_ and _task instance id_:
+
+```sh
+curl --request POST \
+  --url 'http://localhost:8080/error_handling/11b37d40-3c01-4384-92cc-044ac8939dcc/Repair/5b947a11-67f3-4b77-b0d3-1fd422e6600d?phase=complete' \
+  --header 'accept: application/json' \
+  --header 'content-type: application/json' \
+  --data '{"input" : "Jimmy", "strategy" : "RETRY"}'
+```
+
+The WIH logic is executed again using the new input parameter provided by the `error-handling` process.
+
+In the console you should spot an output the resemble the following:
+
+```sh
+2021-09-22 19:27:29,688 DEBUG [org.acm.wih.CustomTaskWorkItemHandler] (executor-thread-0) strategy = RETRY
+>>> message: Hello Jimmy
+2021-09-22 19:27:29,689 DEBUG [org.acm.wih.CustomTaskWorkItemHandler] (executor-thread-0) end
+```
+
+### Probe other strategies
+
+Follow all the step in the previous paragraph, but complete the `Repair` task providing a different payload.
+
+- **Complete strategy** The WIH logic is skipped but the task is marked completed, the main process proceeds picking the result provided by the `error-handling` process
+
+  ```sh
+  curl --request POST \
+    --url 'http://localhost:8080/error_handling/11b37d40-3c01-4384-92cc-044ac8939dcc/Repair/5b947a11-67f3-4b77-b0d3-1fd422e6600d?phase=complete' \
+    --header 'accept: application/json' \
+    --header 'content-type: application/json' \
+    --data '{"result" : "Hello Jimmy","strategy" : "COMPLETE"}'
+  ```
+
+  From the console output you should spot this line:
+
+  ```
+  >>> message: Hello Jimmy
+  ```
+- **Abort strategy** The WIH logic is skipped and the task is marked aborted, the main process proceeds but the `Custom Task` result is **null**. 
+
+  ```sh
+  curl --request POST \
+    --url 'http://localhost:8080/error_handling/11b37d40-3c01-4384-92cc-044ac8939dcc/Repair/5b947a11-67f3-4b77-b0d3-1fd422e6600d?phase=complete' \
+    --header 'accept: application/json' \
+    --header 'content-type: application/json' \
+    --data '{"strategy" : "ABORT"}'
+  ```
+
+  From the console output you should spot this line:
+
+  ```
+  >>> message: null
+  ```
+
+- **Rethrow strategy** The WIH logic is skipped and the main process get an exception 
+
+  ```sh
+  curl --request POST \
+    --url 'http://localhost:8080/error_handling/11b37d40-3c01-4384-92cc-044ac8939dcc/Repair/5b947a11-67f3-4b77-b0d3-1fd422e6600d?phase=complete' \
+    --header 'accept: application/json' \
+    --header 'content-type: application/json' \
+    --data '{"strategy" : "RETHROW"}'
+  ```
+
+  From the console output you should spot this line:
+
+  ```
+  Catch all
+  ```
 
 ## Deploying with Kogito Operator
 
